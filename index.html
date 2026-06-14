@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kino Helios - Centrum Handlowe OB</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        /* --- Zmienne CSS --- */
+        :root {
+            --bg-color: #080808; --surface-color: #121212; --surface-light: #1e1e1e;
+            --primary-red: #cc1111; --primary-red-hover: #ef1515;
+            --text-main: #f5f5f5; --text-muted: #888888;
+            --transition: all 0.3s ease;
+        }
+
+        /* --- Reset --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        html { scroll-behavior: smooth; }
+        body { background-color: var(--bg-color); color: var(--text-main); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--surface-light); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary-red); }
+
+        /* --- Nawigacja --- */
+        header {
+            position: fixed; top: 0; width: 100%; padding: 20px 50px;
+            background: rgba(8, 8, 8, 0.85); backdrop-filter: blur(12px);
+            display: flex; justify-content: space-between; align-items: center; z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .logo { font-size: 26px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
+        .logo span { color: var(--primary-red); }
+        nav ul { list-style: none; display: flex; gap: 20px; align-items: center; }
+        nav ul li a { text-decoration: none; color: var(--text-main); font-weight: 500; font-size: 14px; transition: var(--transition); opacity: 0.8; }
+        nav ul li a:hover { color: var(--primary-red); opacity: 1; }
+        .btn-login { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); padding: 8px 22px; border-radius: 20px; cursor: pointer; transition: var(--transition); font-size: 13px; }
+        .btn-login:hover { border-color: var(--primary-red); color: var(--primary-red); }
+        .btn-admin-nav { background: #222; border: 1px solid #333; color: #ffaa00; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .btn-admin-nav:hover { background: #d48800; color: #fff; }
+        #userInfo { display: none; font-size: 14px; font-weight: bold; color: var(--primary-red); }
+
+        /* --- Hero --- */
+        .hero { height: 65vh; background: linear-gradient(to bottom, rgba(8,8,8,0.2) 0%, var(--bg-color) 100%), url('https://imgur.com/oAN3zRr.png') center/cover fixed; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 20px; }
+        .hero h1 { font-size: 4rem; font-weight: 800; margin-bottom: 15px; }
+        .hero p { font-size: 1.2rem; color: #ccc; margin-bottom: 35px; max-width: 600px; }
+        .btn-primary { background: var(--primary-red); color: white; border: none; padding: 14px 35px; font-size: 15px; border-radius: 30px; cursor: pointer; font-weight: 600; transition: var(--transition); }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-red-hover); transform: translateY(-2px); }
+        .btn-primary:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+        /* --- Sekcje Główne --- */
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+        .section-title { font-size: 2.2rem; margin: 50px 0 25px; font-weight: 700; position: relative; padding-bottom: 10px; }
+        .section-title::after { content: ''; position: absolute; bottom: 0; left: 0; width: 40px; height: 3px; background: var(--primary-red); }
+        
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
+        .movie-card { background: var(--surface-color); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.02); display: flex; flex-direction: column; }
+        .movie-poster { width: 100%; height: 350px; background-size: cover; background-position: center; position: relative; }
+        .movie-tag { position: absolute; top: 15px; left: 15px; background: rgba(204,17,17,0.9); padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .movie-info { padding: 25px; flex: 1; display: flex; flex-direction: column; }
+        .movie-info h3 { font-size: 1.5rem; margin-bottom: 10px; }
+        .movie-info p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 5px; }
+        .showtimes { margin-top: auto; padding-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .time-btn { background: var(--surface-light); color: var(--text-main); border: 1px solid rgba(255,255,255,0.03); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: var(--transition); }
+        .time-btn:hover { background: var(--primary-red); border-color: var(--primary-red); }
+
+        /* --- Panel Administratora --- */
+        .admin-panel { display: none; background: #0d0d0d; border: 2px dashed #ffaa00; padding: 30px; border-radius: 20px; margin-top: 40px; }
+        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 20px; }
+        .admin-box { background: #161616; padding: 20px; border-radius: 12px; border: 1px solid #222; }
+        .admin-box h4 { color: #ffaa00; margin-bottom: 15px; font-size: 1.1rem; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .admin-input { width: 100%; padding: 10px; margin-bottom: 10px; background: #222; border: 1px solid #444; color: white; border-radius: 6px; }
+        .admin-btn { background: #ffaa00; color: black; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; transition: var(--transition); }
+        .admin-btn:hover { background: #e09600; }
+        .admin-btn.danger { background: #cc1111; color: white; }
+        .admin-btn.danger:hover { background: #aa0d0d; }
+        .event-list-item { background: #222; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-radius: 6px; margin-bottom: 8px; border: 1px solid #333; }
+
+        /* --- Modale i Miejsca --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(4,4,4,0.95); display: none; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(5px); }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: var(--surface-color); padding: 40px; border-radius: 24px; max-width: 750px; width: 95%; text-align: center; position: relative; border: 1px solid rgba(255,255,255,0.05); }
+        .close-modal { position: absolute; top: 20px; right: 25px; font-size: 28px; color: var(--text-muted); cursor: pointer; background: none; border: none; }
+        
+        .login-input { width: 100%; max-width: 350px; padding: 15px; margin: 10px auto; border-radius: 10px; border: 1px solid #333; background: #111; color: white; text-align: center; display: block; outline: none; }
+        .login-input:focus { border-color: var(--primary-red); }
+
+        .screen { background: linear-gradient(to bottom, rgba(204,17,17,0.25), transparent); height: 40px; width: 70%; margin: 0 auto 35px; border-top: 3px solid var(--primary-red); border-radius: 100px / 15px; display: flex; justify-content: center; align-items: center; color: rgba(255,255,255,0.3); font-size: 11px; letter-spacing: 6px; }
+        .seats-container { display: flex; flex-direction: column; gap: 10px; align-items: center; margin-bottom: 25px; }
+        .seat-row { display: flex; gap: 8px; align-items: center; }
+        .row-label { color: var(--text-muted); font-size: 12px; font-weight: bold; width: 20px; }
+        .seat { width: 30px; height: 30px; background: var(--surface-light); border-radius: 6px; cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center; color: #fff; border: 1px solid rgba(255,255,255,0.02); transition: 0.2s; }
+        .seat.selected { background: var(--primary-red); box-shadow: 0 0 10px rgba(204,17,17,0.6); border-color: var(--primary-red); }
+        .seat.occupied { background: #1a1a1a; color: #444; cursor: not-allowed; border-color: #111; }
+        .seat.vip { border-bottom: 2px solid #ffaa00; color: #ffaa00; font-weight: bold; }
+        .seat.vip.selected { background: #ffaa00; color: #000; box-shadow: 0 0 10px rgba(255,170,0,0.6); border-color: #ffaa00; }
+        
+        .seat-legend { display: flex; justify-content: center; gap: 20px; margin-bottom: 25px; font-size: 12px; color: var(--text-muted); }
+        .legend-item { display: flex; align-items: center; gap: 8px; }
+        
+        .reservation-summary { border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; display: flex; justify-content: space-between; align-items: center; text-align: left; }
+
+        /* Bilet */
+        .ticket-card { background: #fff; color: #111; border-radius: 12px; max-width: 380px; margin: 25px auto; overflow: hidden; text-align: left; font-family: monospace; }
+        .ticket-header { background: #1a1a1a; color: #fff; padding: 15px; font-family: sans-serif; font-weight: bold; }
+        .ticket-body { padding: 20px; }
+        .ticket-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">Heli<span>o</span>s</div>
+        <nav>
+            <ul>
+                <li><a href="#repertuar">Repertuar</a></li>
+                <li><a href="#wydarzenia">Wydarzenia</a></li>
+                <li id="userInfo">Witaj, <span id="displayNick">Gracz</span>!</li>
+                <li><button class="btn-login" id="loginHeaderBtn">Zaloguj się</button></li>
+                <li><button class="btn-login" id="logoutBtn" style="display:none; border-color:#555;">Wyloguj</button></li>
+                <li><button class="btn-admin-nav" id="adminPanelBtn">Panel Admina</button></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h1>Centrum Handlowe OB</h1>
+        <p>Najnowocześniejsze doświadczenie kinowe w Twoim mieście.</p>
+        <button class="btn-primary" onclick="document.getElementById('repertuar').scrollIntoView()">Zobacz seanse</button>
+    </section>
+
+    <div class="container">
+        
+        <h2 class="section-title" id="repertuar">Repertuar Kinowy</h2>
+        <div id="repertuarGrid" class="grid-container"></div>
+
+        <h2 class="section-title" id="wydarzenia">Wydarzenia Specjalne</h2>
+        <div id="eventsGrid" class="grid-container"></div>
+
+        <div class="admin-panel" id="adminSection">
+            <h3 style="color: #ffaa00; margin-bottom: 20px;">⚙️ Panel Zarządzania Kinem</h3>
+            
+            <div class="admin-grid">
+                <div class="admin-box">
+                    <h4 id="admFormTitle">Dodaj Nowy Film / Wydarzenie</h4>
+                    <input type="text" id="admTitle" class="admin-input" placeholder="Tytuł">
+                    <input type="text" id="admDesc" class="admin-input" placeholder="Krótki opis">
+                    <input type="text" id="admPoster" class="admin-input" placeholder="Link do plakatu URL (np. imgur)">
+                    <input type="number" id="admPrice" class="admin-input" placeholder="Cena bazowa za bilet ($)">
+                    <select id="admType" class="admin-input">
+                        <option value="repertuar">Sekcja: Repertuar</option>
+                        <option value="wydarzenia">Sekcja: Wydarzenie Specjalne</option>
+                    </select>
+                    <input type="text" id="admRoom" class="admin-input" placeholder="Nazwa Sali (np. Sala Premium)">
+                    <input type="text" id="admVipRows" class="admin-input" placeholder="Rzędy VIP [Cena x2] (np. F) domyślnie F" value="F">
+                    <input type="text" id="admTimes" class="admin-input" placeholder="Godziny seansów (np. 18:00, 20:30)">
+                    <button class="admin-btn" id="admSaveBtn" onclick="saveEvent()">Dodaj do bazy</button>
+                    <button class="admin-btn danger" id="admCancelBtn" onclick="cancelEdit()" style="display:none;">Anuluj edycję</button>
+                </div>
+
+                <div class="admin-box">
+                    <h4>Wyczyść Salę Kinową</h4>
+                    <p style="font-size:12px; color:#aaa; margin-bottom:10px;">Zresetuj zajęte miejsca podając ID wydarzenia i godzinę.</p>
+                    <input type="text" id="admResetEventId" class="admin-input" placeholder="Skopiuj ID wydarzenia z listy poniżej">
+                    <input type="text" id="admResetTime" class="admin-input" placeholder="Godzina (np. 18:00)">
+                    <button class="admin-btn danger" onclick="resetSeats()">Zwolnij wszystkie miejsca</button>
+                    
+                    <h4 style="margin-top:20px;">Ostatnie transakcje</h4>
+                    <ul id="admTicketsList" style="list-style:none; font-size:12px; color:#888; max-height:130px; overflow-y:auto;"></ul>
+                </div>
+                
+                <div class="admin-box" style="grid-column: 1 / -1;">
+                    <h4>Zarządzaj dodanymi wydarzeniami (GUI)</h4>
+                    <div id="admEventsList" style="display:flex; flex-direction:column;"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="modal-overlay" id="mainModal">
+        <div class="modal-content">
+            <button class="close-modal" id="closeModalBtn">&times;</button>
+            
+            <div id="loginStage" style="display:none;">
+                <h2 id="loginTitle">Weryfikacja Gracza</h2>
+                <p style="color:var(--text-muted); margin-bottom:15px; font-size:14px;" id="loginInstruction">Wpisz swój nick z Minecraft, aby kontynuować.</p>
+                <input type="text" id="nickInput" class="login-input" placeholder="Nick z gry" autocomplete="off">
+                <div id="pinContainer" style="display:none;">
+                    <p style="color:#ffaa00; font-size:13px; margin:10px 0;">Wpisz swój PIN (Zabezpieczenie Konta):</p>
+                    <input type="password" id="pinInput" class="login-input" placeholder="PIN" maxlength="8">
+                </div>
+                <button class="btn-primary" id="loginNextBtn" style="width:100%; max-width:350px;">Dalej</button>
+            </div>
+
+            <div id="bookingStage" style="display:none;">
+                <h2 id="modalMovieTitle">Tytuł</h2>
+                <p style="color:var(--text-muted); margin-bottom:25px;">Godzina: <span id="modalMovieTime" style="color:#fff;"></span> | <span id="modalMovieRoom"></span></p>
+
+                <div class="screen">EKRAN</div>
+                <div class="seats-container" id="seatsGrid"></div>
+
+                <div class="seat-legend">
+                    <div class="legend-item"><div class="seat" style="width:15px;height:15px;"></div> Standard</div>
+                    <div class="legend-item"><div class="seat vip" style="width:15px;height:15px;"></div> VIP (Koszt x2)</div>
+                    <div class="legend-item"><div class="seat selected" style="width:15px;height:15px;"></div> Wybrane</div>
+                    <div class="legend-item"><div class="seat occupied" style="width:15px;height:15px;"></div> Zajęte</div>
+                </div>
+
+                <div class="reservation-summary">
+                    <div>
+                        <span style="color:var(--text-muted); font-size:14px;">Wybrane:</span>
+                        <div style="color:#fff; font-weight:bold;" id="selectedSeatsText">Brak</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="color:var(--text-muted); font-size:14px;">Do zapłaty:</span>
+                        <h3 style="font-size:1.6rem; color:var(--primary-red);">$<span id="totalPriceDisplay">0</span></h3>
+                    </div>
+                </div>
+                <button class="btn-primary" id="checkoutBtn" style="width:100%; margin-top:20px;" disabled>Kupuję bilety</button>
+            </div>
+
+            <div id="successStage" style="display:none;">
+                <div style="font-size:3rem; color:#2ecc71;">✓</div>
+                <h2>Transakcja Zakończona!</h2>
+                <div class="ticket-card">
+                    <div class="ticket-header">HELIOS <span>CINEMA</span></div>
+                    <div class="ticket-body">
+                        <div class="ticket-row"><span>GRACZ:</span><strong id="tktNick" style="color:var(--primary-red)"></strong></div>
+                        <div class="ticket-row"><span>SEANS:</span><strong id="tktMovie"></strong></div>
+                        <div class="ticket-row"><span>GODZINA:</span><strong id="tktTime"></strong></div>
+                        <div class="ticket-row"><span>SALA:</span><strong id="tktRoom"></strong></div>
+                        <div class="ticket-row"><span>MIEJSCA:</span><strong id="tktSeats"></strong></div>
+                        <div class="ticket-row" style="margin-top:10px; border-top:1px dashed #ccc; padding-top:10px;"><span>ZAPŁACONO:</span><strong id="tktPrice"></strong></div>
+                    </div>
+                </div>
+                <button class="btn-primary" onclick="closeModal()">Zamknij</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // KONFIGURACJA BAZY
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBxpANwKAYaZGKA92Sqtr8OzOqGuQbXgr8",
+            authDomain: "multikinochanarchiagg.firebaseapp.com",
+            databaseURL: "https://multikinochanarchiagg-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "multikinochanarchiagg",
+            storageBucket: "multikinochanarchiagg.firebasestorage.app",
+            messagingSenderId: "891230032756",
+            appId: "1:891230032756:web:3a6791ba19acaf14271221",
+            measurementId: "G-HV8Y756LTX"
+        };
+        const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1515413898751119461/TaStUgnZrRmDjhhgqf-s9YKvJuFcdol7_w2LgH6r7p7ypHYW1OA7SQWliWlmwYbY-TSn";
+        const ADMIN_PASSWORD = "123";
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Stan aplikacji
+        let allEvents = {};
+        let activeEventId = null;
+        let activeTime = null;
+        let selectedSeats = [];
+        let playerNick = localStorage.getItem('mc_nick') || null;
+        let loginStep = "check_nick";
+        let editingEventId = null; 
+
+        // ==========================================
+        // 1. POBIERANIE WYDARZEŃ I RENDEROWANIE GUI
+        // ==========================================
+        db.ref('cinema/events').on('value', snapshot => {
+            const repGrid = document.getElementById('repertuarGrid');
+            const eveGrid = document.getElementById('eventsGrid');
+            const admList = document.getElementById('admEventsList');
+            
+            repGrid.innerHTML = ""; eveGrid.innerHTML = ""; admList.innerHTML = "";
+            allEvents = snapshot.val() || {};
+
+            if(Object.keys(allEvents).length === 0) {
+                repGrid.innerHTML = "<p>Brak filmów.</p>";
+                eveGrid.innerHTML = "<p>Brak wydarzeń.</p>";
+                admList.innerHTML = "<p>Brak dodanych wydarzeń w bazie.</p>";
+                return;
+            }
+
+            for (const [eventId, ev] of Object.entries(allEvents)) {
+                const times = (ev.showtimes || "").split(',').map(t => t.trim()).filter(t => t);
+                const timesHtml = times.map(t => `<button class="time-btn" onclick="startBooking('${eventId}', '${t}')">${t}</button>`).join('');
+
+                const html = `
+                    <div class="movie-card">
+                        <div class="movie-poster" style="background-image: url('${ev.poster}')">
+                            <div class="movie-tag">${ev.type}</div>
+                        </div>
+                        <div class="movie-info">
+                            <h3>${ev.title}</h3>
+                            <p>${ev.desc || ""}</p>
+                            <p style="color:#fff; margin-top:5px;">Sala: <b>${ev.room}</b> | Od: <b>$${ev.price.toLocaleString()}</b></p>
+                            <div class="showtimes">${timesHtml || '<span style="color:#666;font-size:12px;">Brak zaplanowanych seansów</span>'}</div>
+                        </div>
+                    </div>`;
+
+                if (ev.type === 'repertuar') repGrid.innerHTML += html;
+                else eveGrid.innerHTML += html;
+
+                admList.innerHTML += `
+                    <div class="event-list-item">
+                        <div>
+                            <span style="color:#ffaa00; font-size:11px;">ID: ${eventId}</span><br>
+                            <strong>${ev.title}</strong> (${ev.type}) - ${ev.room}
+                        </div>
+                        <div style="display:flex; gap:5px;">
+                            <button class="admin-btn" style="width:auto; padding:6px 12px; margin:0;" onclick="editEvent('${eventId}')">Edytuj</button>
+                            <button class="admin-btn danger" style="width:auto; padding:6px 12px; margin:0;" onclick="deleteEvent('${eventId}')">Usuń</button>
+                        </div>
+                    </div>`;
+            }
+        });
+
+        // ==========================================
+        // 2. PANEL ADMINA 
+        // ==========================================
+        document.getElementById('adminPanelBtn').onclick = () => {
+            if(prompt("Hasło administratora:") === ADMIN_PASSWORD) {
+                document.getElementById('adminSection').style.display = 'block';
+                document.getElementById('adminSection').scrollIntoView();
+                
+                db.ref('cinema/tickets').limitToLast(10).on('value', snap => {
+                    const list = document.getElementById('admTicketsList');
+                    list.innerHTML = "";
+                    const data = snap.val();
+                    if(data) Object.values(data).reverse().forEach(log => list.innerHTML += `<li>${log}</li>`);
+                });
+            } else alert("Odmowa dostępu!");
+        };
+
+        function saveEvent() {
+            const data = {
+                title: document.getElementById('admTitle').value || "Brak Tytułu",
+                desc: document.getElementById('admDesc').value || "",
+                poster: document.getElementById('admPoster').value || "",
+                price: parseInt(document.getElementById('admPrice').value) || 0,
+                type: document.getElementById('admType').value,
+                room: document.getElementById('admRoom').value || "Sala 1",
+                vipRows: (document.getElementById('admVipRows').value || "F").toUpperCase(),
+                showtimes: document.getElementById('admTimes').value || ""
+            };
+
+            if (editingEventId) {
+                db.ref(`cinema/events/${editingEventId}`).update(data);
+                alert("Zaktualizowano wydarzenie!");
+                cancelEdit();
+            } else {
+                db.ref('cinema/events').push(data);
+                alert("Dodano nowe wydarzenie!");
+                document.querySelectorAll('.admin-input').forEach(i => { if(i.id !== 'admType' && i.id !== 'admVipRows') i.value = ''; });
+            }
+        }
+
+        function editEvent(id) {
+            editingEventId = id;
+            const ev = allEvents[id];
+            document.getElementById('admFormTitle').innerText = "Edytuj Wydarzenie";
+            document.getElementById('admTitle').value = ev.title;
+            document.getElementById('admDesc').value = ev.desc;
+            document.getElementById('admPoster').value = ev.poster;
+            document.getElementById('admPrice').value = ev.price;
+            document.getElementById('admType').value = ev.type;
+            document.getElementById('admRoom').value = ev.room;
+            document.getElementById('admVipRows').value = ev.vipRows || "F";
+            document.getElementById('admTimes').value = ev.showtimes;
+            
+            document.getElementById('admSaveBtn').innerText = "Zapisz Zmiany";
+            document.getElementById('admCancelBtn').style.display = "block";
+            document.getElementById('adminSection').scrollIntoView();
+        }
+
+        function cancelEdit() {
+            editingEventId = null;
+            document.getElementById('admFormTitle').innerText = "Dodaj Nowy Film / Wydarzenie";
+            document.getElementById('admSaveBtn').innerText = "Dodaj do bazy";
+            document.getElementById('admCancelBtn').style.display = "none";
+            document.querySelectorAll('.admin-input').forEach(i => { if(i.id !== 'admType' && i.id !== 'admVipRows') i.value = ''; });
+        }
+
+        function deleteEvent(id) {
+            if(confirm("Czy na pewno chcesz usunąć to wydarzenie?")) db.ref(`cinema/events/${id}`).remove();
+        }
+
+        function resetSeats() {
+            const evId = document.getElementById('admResetEventId').value.trim();
+            const time = document.getElementById('admResetTime').value.trim().replace(/[:.]/g, "-");
+            if(evId && time) {
+                db.ref(`cinema/occupiedSeats/${evId}/${time}`).remove();
+                alert("Miejsca na sali zostały zwolnione!");
+            } else alert("Podaj poprawne ID wydarzenia i godzinę!");
+        }
+
+        // ==========================================
+        // 3. LOGIKA REZERWACJI I MODALA
+        // ==========================================
+        function updateHeaderNick() {
+            if(playerNick) {
+                document.getElementById('loginHeaderBtn').style.display = 'none';
+                document.getElementById('userInfo').style.display = 'block';
+                document.getElementById('logoutBtn').style.display = 'block';
+                document.getElementById('displayNick').innerText = playerNick;
+            } else {
+                document.getElementById('loginHeaderBtn').style.display = 'block';
+                document.getElementById('userInfo').style.display = 'none';
+                document.getElementById('logoutBtn').style.display = 'none';
+            }
+        }
+        updateHeaderNick();
+
+        document.getElementById('logoutBtn').onclick = () => {
+            localStorage.removeItem('mc_nick');
+            playerNick = null;
+            updateHeaderNick();
+            alert("Wylogowano poprawnie.");
+        };
+
+        function startBooking(eventId, time) {
+            activeEventId = eventId;
+            activeTime = time;
+            document.getElementById('mainModal').classList.add('active');
+            
+            if(!playerNick) {
+                showModalStage('loginStage');
+                document.getElementById('nickInput').disabled = false;
+                document.getElementById('nickInput').value = "";
+                document.getElementById('pinInput').value = "";
+                document.getElementById('pinContainer').style.display = "none";
+                document.getElementById('loginInstruction').innerText = "Wpisz swój nick z Minecraft, aby kontynuować.";
+                loginStep = "check_nick";
+            } else {
+                prepareSeatMap();
+            }
+        }
+
+        function showModalStage(stageId) {
+            document.getElementById('loginStage').style.display = 'none';
+            document.getElementById('bookingStage').style.display = 'none';
+            document.getElementById('successStage').style.display = 'none';
+            document.getElementById(stageId).style.display = 'block';
+        }
+
+        function closeModal() { 
+            document.getElementById('mainModal').classList.remove('active');
+            if(activeEventId && activeTime) {
+                const safeTime = activeTime.replace(/[:.]/g, "-");
+                db.ref(`cinema/occupiedSeats/${activeEventId}/${safeTime}`).off();
+            }
+        }
+        document.getElementById('closeModalBtn').onclick = closeModal;
+
+        // --- Logowanie Nickiem ---
+        document.getElementById('loginHeaderBtn').onclick = () => {
+            document.getElementById('mainModal').classList.add('active');
+            showModalStage('loginStage');
+            document.getElementById('nickInput').disabled = false;
+            document.getElementById('nickInput').value = "";
+            document.getElementById('pinInput').value = "";
+            document.getElementById('pinContainer').style.display = "none";
+            document.getElementById('loginInstruction').innerText = "Wpisz swój nick z Minecraft, aby kontynuować.";
+            loginStep = "check_nick";
+        };
+
+        document.getElementById('loginNextBtn').onclick = () => {
+            const nick = document.getElementById('nickInput').value.trim();
+            const pin = document.getElementById('pinInput').value.trim();
+            if(nick.length < 3) return alert("Za krótki nick!");
+
+            if(loginStep === "check_nick") {
+                db.ref(`cinema/users/${nick}`).once('value', snap => {
+                    document.getElementById('nickInput').disabled = true;
+                    document.getElementById('pinContainer').style.display = 'block';
+                    if(snap.exists()) {
+                        document.getElementById('loginInstruction').innerText = "Ten nick jest już zarejestrowany. Wpisz PIN.";
+                        loginStep = "verify_pin";
+                    } else {
+                        document.getElementById('loginInstruction').innerText = "Zabezpiecz swój nowy profil - wymyśl PIN.";
+                        loginStep = "create_profile";
+                    }
+                });
+            } else if (loginStep === "verify_pin") {
+                db.ref(`cinema/users/${nick}/pin`).once('value', snap => {
+                    if(snap.val() === pin) {
+                        playerNick = nick; localStorage.setItem('mc_nick', nick); updateHeaderNick();
+                        if(activeEventId) prepareSeatMap(); else closeModal();
+                    } else alert("❌ Zły PIN! Prawdopodobnie kto inny zarejestrował już ten nick.");
+                });
+            } else if (loginStep === "create_profile") {
+                if(pin.length < 2) return alert("Zbyt krótki PIN!");
+                db.ref(`cinema/users/${nick}`).set({ pin: pin });
+                playerNick = nick; localStorage.setItem('mc_nick', nick); updateHeaderNick();
+                if(activeEventId) prepareSeatMap(); else closeModal();
+            }
+        };
+
+        // --- Mapa Miejsc ---
+        function prepareSeatMap() {
+            showModalStage('bookingStage');
+            const ev = allEvents[activeEventId];
+            document.getElementById('modalMovieTitle').innerText = ev.title;
+            document.getElementById('modalMovieTime').innerText = activeTime;
+            document.getElementById('modalMovieRoom').innerText = ev.room;
+            selectedSeats = [];
+            updateCart();
+
+            const safeTime = activeTime.replace(/[:.]/g, "-");
+            
+            db.ref(`cinema/occupiedSeats/${activeEventId}/${safeTime}`).off(); 
+            db.ref(`cinema/occupiedSeats/${activeEventId}/${safeTime}`).on('value', snap => {
+                generateGrid(snap.val() || {}, ev.vipRows || "F");
+            });
+        }
+
+        function generateGrid(occupiedDB, vipRowsString) {
+            const grid = document.getElementById('seatsGrid');
+            grid.innerHTML = "";
+            const rows = ['A', 'B', 'C', 'D', 'E', 'F']; 
+            const vipRows = vipRowsString.split(',').map(s=>s.trim().toUpperCase());
+
+            // Liczenie biletów jakie gracz aktualnie już zakupił na ten konkretny seans
+            let userAlreadyOwnedCount = Object.values(occupiedDB).filter(nick => nick === playerNick).length;
+
+            rows.forEach(r => {
+                const rowDiv = document.createElement('div'); rowDiv.className = 'seat-row';
+                rowDiv.innerHTML = `<div class="row-label">${r}</div>`;
+                
+                for(let i=1; i<=8; i++) {
+                    const sId = `${r}-${i}`;
+                    const seat = document.createElement('div');
+                    seat.className = 'seat'; seat.innerText = i;
+                    
+                    if(vipRows.includes(r)) seat.classList.add('vip');
+                    if(occupiedDB[sId]) {
+                        seat.classList.add('occupied');
+                        // Jeśli to miejsce kupione przez bieżącego gracza, wyróżniamy je wizualnie 
+                        if(occupiedDB[sId] === playerNick) {
+                            seat.style.borderColor = "#2ecc71";
+                            seat.style.color = "#2ecc71";
+                            seat.title = "Twoje miejsce!";
+                        }
+                    }
+                    if(selectedSeats.includes(sId)) seat.classList.add('selected');
+
+                    if(i === 4) seat.style.marginRight = "25px";
+
+                    seat.onclick = () => {
+                        if(seat.classList.contains('occupied')) {
+                            if(occupiedDB[sId] === playerNick) alert("To miejsce należy już do Ciebie!");
+                            return;
+                        }
+                        
+                        if(selectedSeats.includes(sId)) {
+                            selectedSeats = selectedSeats.filter(s => s !== sId);
+                            seat.classList.remove('selected');
+                        } else {
+                            // Weryfikacja limitu MAX 3 biletów
+                            if(userAlreadyOwnedCount + selectedSeats.length >= 3) {
+                                alert("Osiągnięto limit! 🎫 Jeden gracz może kupić maksymalnie 3 bilety na dany seans.");
+                                return;
+                            }
+                            selectedSeats.push(sId);
+                            seat.classList.add('selected');
+                        }
+                        updateCart(); 
+                    };
+                    rowDiv.appendChild(seat);
+                }
+                grid.appendChild(rowDiv);
+            });
+        }
+
+        function updateCart() {
+            const ev = allEvents[activeEventId];
+            const vipRows = (ev.vipRows || "F").split(',').map(s=>s.trim().toUpperCase());
+            let sum = 0;
+
+            selectedSeats.forEach(s => {
+                const row = s.split('-')[0];
+                if(vipRows.includes(row)) sum += ev.price * 2;
+                else sum += ev.price;
+            });
+
+            document.getElementById('selectedSeatsText').innerText = selectedSeats.length ? selectedSeats.join(', ') : "Brak";
+            document.getElementById('totalPriceDisplay').innerText = sum.toLocaleString();
+            document.getElementById('checkoutBtn').disabled = selectedSeats.length === 0;
+        }
+
+        // --- Zakup i Discord ---
+        document.getElementById('checkoutBtn').onclick = () => {
+            const ev = allEvents[activeEventId];
+            const safeTime = activeTime.replace(/[:.]/g, "-");
+            let sum = parseInt(document.getElementById('totalPriceDisplay').innerText.replace(/\s/g, ''));
+            const seatsFormatted = selectedSeats.join(', ');
+
+            let updates = {};
+            selectedSeats.forEach(s => updates[`cinema/occupiedSeats/${activeEventId}/${safeTime}/${s}`] = playerNick);
+            updates[`cinema/tickets/${db.ref().push().key}`] = `[${ev.title}] ${playerNick} kupił ${seatsFormatted} za $${sum}`;
+            
+            db.ref().update(updates);
+
+            fetch(DISCORD_WEBHOOK_URL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    embeds: [{
+                        title: "🎟️ Sprzedano nowy bilet!",
+                        color: 13373713,
+                        fields: [
+                            {name: "Gracz", value: playerNick, inline: true},
+                            {name: "Kwota", value: `$${sum}`, inline: true},
+                            {name: "Film / Wydarzenie", value: `${ev.title} (${activeTime})`, inline: false},
+                            {name: "Miejsca", value: seatsFormatted, inline: false}
+                        ]
+                    }]
+                })
+            });
+
+            showModalStage('successStage');
+            document.getElementById('tktNick').innerText = playerNick;
+            document.getElementById('tktMovie').innerText = ev.title;
+            document.getElementById('tktTime').innerText = activeTime;
+            document.getElementById('tktRoom').innerText = ev.room;
+            document.getElementById('tktSeats').innerText = seatsFormatted;
+            document.getElementById('tktPrice').innerText = `$${sum}`;
+            
+            db.ref(`cinema/occupiedSeats/${activeEventId}/${safeTime}`).off();
+        };
+    </script>
+</body>
+</html>

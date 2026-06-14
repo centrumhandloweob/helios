@@ -6,7 +6,7 @@
     <title>Kino Helios - Centrum Handlowe OB</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
+    <link rel="icon" type="image/png" href="https://imgur.com/7LhZozH.png">
     <style>
         /* --- Zmienne CSS --- */
         :root {
@@ -120,14 +120,14 @@
                 <li id="userInfo">Witaj, <span id="displayNick">Gracz</span>!</li>
                 <li><button class="btn-login" id="loginHeaderBtn">Zaloguj się</button></li>
                 <li><button class="btn-login" id="logoutBtn" style="display:none; border-color:#555;">Wyloguj</button></li>
-                <li><button class="btn-admin-nav" id="adminPanelBtn">Panel Admina</button></li>
+                <li><button class="btn-admin-nav" id="adminPanelBtn">Panel Administratora</button></li>
             </ul>
         </nav>
     </header>
 
     <section class="hero">
         <h1>Centrum Handlowe OB</h1>
-        <p>Najnowocześniejsze doświadczenie kinowe w Twoim mieście.</p>
+        <p>Pierwsze kino na Oneblocku, Anarchia.GG!</p>
         <button class="btn-primary" onclick="document.getElementById('repertuar').scrollIntoView()">Zobacz seanse</button>
     </section>
 
@@ -156,7 +156,7 @@
                     <input type="text" id="admRoom" class="admin-input" placeholder="Nazwa Sali (np. Sala Premium)">
                     <input type="text" id="admVipRows" class="admin-input" placeholder="Rzędy VIP [Cena x2] (np. F) domyślnie F" value="F">
                     <input type="text" id="admTimes" class="admin-input" placeholder="Godziny seansów (np. 18:00, 20:30)">
-                    <button class="admin-btn" id="admSaveBtn" onclick="saveEvent()">Dodaj do bazy</button>
+                    <button class="admin-btn" id="admSaveBtn" onclick="saveEvent()">Dodaj</button>
                     <button class="admin-btn danger" id="admCancelBtn" onclick="cancelEdit()" style="display:none;">Anuluj edycję</button>
                 </div>
 
@@ -172,7 +172,7 @@
                 </div>
                 
                 <div class="admin-box" style="grid-column: 1 / -1;">
-                    <h4>Zarządzaj dodanymi wydarzeniami (GUI)</h4>
+                    <h4>Zarządzaj dodanymi wydarzeniami</h4>
                     <div id="admEventsList" style="display:flex; flex-direction:column;"></div>
                 </div>
             </div>

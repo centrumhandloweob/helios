@@ -10,7 +10,8 @@
     <style>
         /* --- Zmienne CSS --- */
         :root {
-            --bg-color: #080808; --surface-color: #121212; --surface-light: #1e1e1e;
+            --bg-color: #080808;
+            --surface-color: #121212; --surface-light: #1e1e1e;
             --primary-red: #cc1111; --primary-red-hover: #ef1515;
             --text-main: #f5f5f5; --text-muted: #888888;
             --transition: all 0.3s ease;
@@ -27,9 +28,11 @@
 
         /* --- Nawigacja --- */
         header {
-            position: fixed; top: 0; width: 100%; padding: 20px 50px;
+            position: fixed;
+            top: 0; width: 100%; padding: 20px 50px;
             background: rgba(8, 8, 8, 0.85); backdrop-filter: blur(12px);
-            display: flex; justify-content: space-between; align-items: center; z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.03);
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.03);
         }
         .logo { font-size: 26px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
         .logo span { color: var(--primary-red); }
@@ -117,6 +120,7 @@
             <ul>
                 <li><a href="#repertuar">Repertuar</a></li>
                 <li><a href="#wydarzenia">Wydarzenia</a></li>
+                <li><a href="#mojeBilety" id="navMojeBilety" style="display:none;">Moje Bilety</a></li>
                 <li id="userInfo">Witaj, <span id="displayNick">Gracz</span>!</li>
                 <li><button class="btn-login" id="loginHeaderBtn">Zaloguj się</button></li>
                 <li><button class="btn-login" id="logoutBtn" style="display:none; border-color:#555;">Wyloguj</button></li>
@@ -133,6 +137,9 @@
 
     <div class="container">
         
+        <h2 class="section-title" id="mojeBilety" style="display:none;">Moje Zakupione Bilety</h2>
+        <div id="myTicketsGrid" class="grid-container" style="display:none; margin-bottom: 40px;"></div>
+
         <h2 class="section-title" id="repertuar">Repertuar Kinowy</h2>
         <div id="repertuarGrid" class="grid-container"></div>
 
@@ -161,12 +168,29 @@
                 </div>
 
                 <div class="admin-box">
+                    <h4>Weryfikacja i Kasowanie Biletu</h4>
+                    <p style="font-size:12px; color:#aaa; margin-bottom:10px;">Wpisz unikalny kod biletu podany przez gracza, aby sprawdzić informacje i go skasować.</p>
+                    <input type="text" id="admTicketCodeInput" class="admin-input" placeholder="Wpisz 6-cyfrowy kod biletu (np. ABC123)">
+                    <button class="admin-btn" onclick="verifyTicketByCode()">Sprawdź bilet</button>
+                    
+                    <div id="admTicketDetails" style="margin-top:15px; padding-top:15px; border-top:1px solid #333; font-size:13px; display:none;">
+                        <p style="margin-bottom:5px;">🎬 <b>Film:</b> <span id="admTktMovie"></span></p>
+                        <p style="margin-bottom:5px;">👤 <b>Gracz:</b> <span id="admTktPlayer"></span></p>
+                        <p style="margin-bottom:5px;">⏰ <b>Seans:</b> <span id="admTktTime"></span></p>
+                        <p style="margin-bottom:5px;">🪑 <b>Miejsca:</b> <span id="admTktSeats"></span></p>
+                        <p style="margin-bottom:5px;">💰 <b>Zapłacono:</b> <span id="admTktPrice"></span></p>
+                        <p style="margin-bottom:10px;">📌 <b>Status:</b> <span id="admTktStatus" style="font-weight:bold;"></span></p>
+                        <button class="admin-btn danger" id="admCancelTktBtn">Skasuj bilet (Oznacz jako zużyty)</button>
+                    </div>
+                </div>
+
+                <div class="admin-box">
                     <h4>Wyczyść Salę Kinową</h4>
                     <p style="font-size:12px; color:#aaa; margin-bottom:10px;">Zresetuj zajęte miejsca podając ID wydarzenia i godzinę.</p>
                     <input type="text" id="admResetEventId" class="admin-input" placeholder="Skopiuj ID wydarzenia z listy poniżej">
                     <input type="text" id="admResetTime" class="admin-input" placeholder="Godzina (np. 18:00)">
                     <button class="admin-btn danger" onclick="resetSeats()">Zwolnij wszystkie miejsca</button>
-                    
+            
                     <h4 style="margin-top:20px;">Ostatnie transakcje</h4>
                     <ul id="admTicketsList" style="list-style:none; font-size:12px; color:#888; max-height:130px; overflow-y:auto;"></ul>
                 </div>
@@ -234,6 +258,9 @@
                         <div class="ticket-row"><span>SALA:</span><strong id="tktRoom"></strong></div>
                         <div class="ticket-row"><span>MIEJSCA:</span><strong id="tktSeats"></strong></div>
                         <div class="ticket-row" style="margin-top:10px; border-top:1px dashed #ccc; padding-top:10px;"><span>ZAPŁACONO:</span><strong id="tktPrice"></strong></div>
+                        <div class="ticket-row" style="margin-top:10px; background:#fff3cd; padding:8px; border-radius:6px; border:1px dashed #ffaa00;">
+                            <span>KOD VERIFY:</span><strong id="tktCode" style="color:#b58100; font-size:16px; letter-spacing:1px;"></strong>
+                        </div>
                     </div>
                 </div>
                 <button class="btn-primary" onclick="closeModal()">Zamknij</button>
@@ -272,6 +299,63 @@
         let editingEventId = null; 
 
         // ==========================================
+        // SYSTEM POBIERANIA LISTY BILETÓW DLA KLIENTA
+        // ==========================================
+        function loadUserTickets() {
+            const section = document.getElementById('mojeBilety');
+            const grid = document.getElementById('myTicketsGrid');
+            const navBtn = document.getElementById('navMojeBilety');
+            
+            if(!playerNick) {
+                if(section) section.style.display = 'none';
+                if(grid) grid.style.display = 'none';
+                if(navBtn) navBtn.style.display = 'none';
+                return;
+            }
+            
+            if(navBtn) navBtn.style.display = 'block';
+
+            db.ref('cinema/bookedTickets').on('value', snap => {
+                grid.innerHTML = "";
+                const allTickets = snap.val() || {};
+                let userTicketsCount = 0;
+
+                // Odwracamy klucze, by najnowsze bilety były u góry
+                Object.keys(allTickets).reverse().forEach(code => {
+                    const t = allTickets[code];
+                    if(t.player === playerNick) {
+                        userTicketsCount++;
+                        const isCancelled = t.status === 'skasowany';
+                        const statusColor = isCancelled ? '#cc1111' : '#2ecc71';
+                        const statusText = isCancelled ? 'SKASOWANY (ZUŻYTY)' : 'AKTYWNY';
+                        
+                        grid.innerHTML += `
+                            <div class="movie-card" style="padding:22px; border:1px solid rgba(255,255,255,0.05); background:#111;">
+                                <div style="font-size:1.2rem; font-weight:bold; color:#ffaa00; margin-bottom:8px;">${t.movieTitle}</div>
+                                <p style="margin-bottom:4px; font-size:14px;">⏰ Seans: <b>${t.time}</b> (${t.room})</p>
+                                <p style="margin-bottom:4px; font-size:14px;">🪑 Miejsca: <b>${t.seats}</b></p>
+                                <p style="margin-bottom:4px; font-size:14px;">💰 Cena: <b>$${t.price.toLocaleString()}</b></p>
+                                <div style="margin-top:12px; padding:10px; background:#181818; border-radius:8px; text-align:center; border: 1px solid #222;">
+                                    <span style="font-size:10px; color:#777; display:block; text-transform:uppercase; letter-spacing:1px;">Kod Weryfikacyjny</span>
+                                    <b style="font-size:18px; color:#fff; letter-spacing:2px; font-family:monospace;">${code}</b>
+                                </div>
+                                <p style="margin-top:12px; font-weight:bold; text-align:center; font-size:13px; color:${statusColor}">${statusText}</p>
+                            </div>
+                        `;
+                    }
+                });
+
+                if(userTicketsCount > 0) {
+                    section.style.display = 'block';
+                    grid.style.display = 'grid';
+                } else {
+                    section.style.display = 'none';
+                    grid.style.display = 'none';
+                }
+            });
+        }
+
+        // ==========================================
         // 1. POBIERANIE WYDARZEŃ I RENDEROWANIE GUI
         // ==========================================
         db.ref('cinema/events').on('value', snapshot => {
@@ -305,10 +389,8 @@
                             <div class="showtimes">${timesHtml || '<span style="color:#666;font-size:12px;">Brak zaplanowanych seansów</span>'}</div>
                         </div>
                     </div>`;
-
                 if (ev.type === 'repertuar') repGrid.innerHTML += html;
                 else eveGrid.innerHTML += html;
-
                 admList.innerHTML += `
                     <div class="event-list-item">
                         <div>
@@ -324,7 +406,7 @@
         });
 
         // ==========================================
-        // 2. PANEL ADMINA 
+        // 2. PANEL ADMINA - WERYFIKACJA I FUNKCJE
         // ==========================================
         document.getElementById('adminPanelBtn').onclick = () => {
             if(prompt("Hasło administratora:") === ADMIN_PASSWORD) {
@@ -340,6 +422,51 @@
             } else alert("Odmowa dostępu!");
         };
 
+        function verifyTicketByCode() {
+            const code = document.getElementById('admTicketCodeInput').value.trim().toUpperCase();
+            const detailsDiv = document.getElementById('admTicketDetails');
+            
+            if(!code) return alert("Wpisz kod biletu!");
+            
+            db.ref(`cinema/bookedTickets/${code}`).once('value', snap => {
+                const t = snap.val();
+                if(!t) {
+                    detailsDiv.style.display = 'none';
+                    alert("❌ Nie znaleziono aktywnego biletu o takim kodzie w bazie!");
+                    return;
+                }
+                
+                document.getElementById('admTktMovie').innerText = t.movieTitle;
+                document.getElementById('admTktPlayer').innerText = t.player;
+                document.getElementById('admTktTime').innerText = `${t.time} (${t.room})`;
+                document.getElementById('admTktSeats').innerText = t.seats;
+                document.getElementById('admTktPrice').innerText = `$${t.price.toLocaleString()}`;
+                
+                const statusSpan = document.getElementById('admTktStatus');
+                const cancelBtn = document.getElementById('admCancelTktBtn');
+                
+                if(t.status === 'skasowany') {
+                    statusSpan.innerText = "SKASOWANY / ZUŻYTY";
+                    statusSpan.style.color = "#cc1111";
+                    cancelBtn.disabled = true;
+                    cancelBtn.innerText = "Bilet jest już skasowany";
+                } else {
+                    statusSpan.innerText = "AKTYWNY (Zdatny do wejścia)";
+                    statusSpan.style.color = "#2ecc71";
+                    cancelBtn.disabled = false;
+                    cancelBtn.innerText = "Skasuj bilet (Oznacz jako zużyty)";
+                    cancelBtn.onclick = () => {
+                        if(confirm(`Czy na pewno chcesz zmienić status biletu ${code} na SKASOWANY?`)) {
+                            db.ref(`cinema/bookedTickets/${code}`).update({ status: 'skasowany' });
+                            alert("🎫 Bilet skasowany pomyślnie. Miejsce zostało rozliczone.");
+                            verifyTicketByCode(); // Odśwież widok danych
+                        }
+                    };
+                }
+                detailsDiv.style.display = 'block';
+            });
+        }
+
         function saveEvent() {
             const data = {
                 title: document.getElementById('admTitle').value || "Brak Tytułu",
@@ -351,7 +478,6 @@
                 vipRows: (document.getElementById('admVipRows').value || "F").toUpperCase(),
                 showtimes: document.getElementById('admTimes').value || ""
             };
-
             if (editingEventId) {
                 db.ref(`cinema/events/${editingEventId}`).update(data);
                 alert("Zaktualizowano wydarzenie!");
@@ -416,6 +542,7 @@
                 document.getElementById('userInfo').style.display = 'none';
                 document.getElementById('logoutBtn').style.display = 'none';
             }
+            loadUserTickets();
         }
         updateHeaderNick();
 
@@ -476,7 +603,6 @@
             const nick = document.getElementById('nickInput').value.trim();
             const pin = document.getElementById('pinInput').value.trim();
             if(nick.length < 3) return alert("Za krótki nick!");
-
             if(loginStep === "check_nick") {
                 db.ref(`cinema/users/${nick}`).once('value', snap => {
                     document.getElementById('nickInput').disabled = true;
@@ -513,7 +639,6 @@
             document.getElementById('modalMovieRoom').innerText = ev.room;
             selectedSeats = [];
             updateCart();
-
             const safeTime = activeTime.replace(/[:.]/g, "-");
             
             db.ref(`cinema/occupiedSeats/${activeEventId}/${safeTime}`).off(); 
@@ -527,10 +652,7 @@
             grid.innerHTML = "";
             const rows = ['A', 'B', 'C', 'D', 'E', 'F']; 
             const vipRows = vipRowsString.split(',').map(s=>s.trim().toUpperCase());
-
-            // Liczenie biletów jakie gracz aktualnie już zakupił na ten konkretny seans
             let userAlreadyOwnedCount = Object.values(occupiedDB).filter(nick => nick === playerNick).length;
-
             rows.forEach(r => {
                 const rowDiv = document.createElement('div'); rowDiv.className = 'seat-row';
                 rowDiv.innerHTML = `<div class="row-label">${r}</div>`;
@@ -543,7 +665,6 @@
                     if(vipRows.includes(r)) seat.classList.add('vip');
                     if(occupiedDB[sId]) {
                         seat.classList.add('occupied');
-                        // Jeśli to miejsce kupione przez bieżącego gracza, wyróżniamy je wizualnie 
                         if(occupiedDB[sId] === playerNick) {
                             seat.style.borderColor = "#2ecc71";
                             seat.style.color = "#2ecc71";
@@ -551,7 +672,6 @@
                         }
                     }
                     if(selectedSeats.includes(sId)) seat.classList.add('selected');
-
                     if(i === 4) seat.style.marginRight = "25px";
 
                     seat.onclick = () => {
@@ -564,7 +684,6 @@
                             selectedSeats = selectedSeats.filter(s => s !== sId);
                             seat.classList.remove('selected');
                         } else {
-                            // Weryfikacja limitu MAX 3 biletów
                             if(userAlreadyOwnedCount + selectedSeats.length >= 3) {
                                 alert("Osiągnięto limit! 🎫 Jeden gracz może kupić maksymalnie 3 bilety na dany seans.");
                                 return;
@@ -572,7 +691,7 @@
                             selectedSeats.push(sId);
                             seat.classList.add('selected');
                         }
-                        updateCart(); 
+                        updateCart();
                     };
                     rowDiv.appendChild(seat);
                 }
@@ -584,31 +703,44 @@
             const ev = allEvents[activeEventId];
             const vipRows = (ev.vipRows || "F").split(',').map(s=>s.trim().toUpperCase());
             let sum = 0;
-
             selectedSeats.forEach(s => {
                 const row = s.split('-')[0];
                 if(vipRows.includes(row)) sum += ev.price * 2;
                 else sum += ev.price;
             });
-
             document.getElementById('selectedSeatsText').innerText = selectedSeats.length ? selectedSeats.join(', ') : "Brak";
             document.getElementById('totalPriceDisplay').innerText = sum.toLocaleString();
             document.getElementById('checkoutBtn').disabled = selectedSeats.length === 0;
         }
 
-        // --- Zakup i Discord ---
+        // --- Zakup, Generowanie Kodu i Discord ---
         document.getElementById('checkoutBtn').onclick = () => {
             const ev = allEvents[activeEventId];
             const safeTime = activeTime.replace(/[:.]/g, "-");
             let sum = parseInt(document.getElementById('totalPriceDisplay').innerText.replace(/\s/g, ''));
             const seatsFormatted = selectedSeats.join(', ');
 
+            // GENEROWANIE UNIKALNEGO KODU VERIFY (6 ZNAKÓW)
+            const ticketCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
             let updates = {};
             selectedSeats.forEach(s => updates[`cinema/occupiedSeats/${activeEventId}/${safeTime}/${s}`] = playerNick);
-            updates[`cinema/tickets/${db.ref().push().key}`] = `[${ev.title}] ${playerNick} kupił ${seatsFormatted} za $${sum}`;
+            updates[`cinema/tickets/${db.ref().push().key}`] = `[${ev.title}] ${playerNick} kupił ${seatsFormatted} za $${sum} | Kod: ${ticketCode}`;
             
-            db.ref().update(updates);
+            // Zapis strukturalnego obiektu biletu do bazy danych
+            updates[`cinema/bookedTickets/${ticketCode}`] = {
+                player: playerNick,
+                eventId: activeEventId,
+                movieTitle: ev.title,
+                time: activeTime,
+                room: ev.room,
+                seats: seatsFormatted,
+                price: sum,
+                status: "aktywny" // domyślnie aktywny bilet
+            };
 
+            db.ref().update(updates);
+            
             fetch(DISCORD_WEBHOOK_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -620,11 +752,12 @@
                             {name: "Gracz", value: playerNick, inline: true},
                             {name: "Kwota", value: `$${sum}`, inline: true},
                             {name: "Film / Wydarzenie", value: `${ev.title} (${activeTime})`, inline: false},
-                            {name: "Miejsca", value: seatsFormatted, inline: false}
+                            {name: "Miejsca", value: seatsFormatted, inline: false},
+                            {name: "Kod Weryfikacyjny", value: ticketCode, inline: false}
                         ]
                     }]
                 })
-            });
+            }).catch(e => console.log("Discord error ignored"));
 
             showModalStage('successStage');
             document.getElementById('tktNick').innerText = playerNick;
@@ -633,6 +766,7 @@
             document.getElementById('tktRoom').innerText = ev.room;
             document.getElementById('tktSeats').innerText = seatsFormatted;
             document.getElementById('tktPrice').innerText = `$${sum}`;
+            document.getElementById('tktCode').innerText = ticketCode; // Przekazanie kodu do widoku biletu
             
             db.ref(`cinema/occupiedSeats/${activeEventId}/${safeTime}`).off();
         };
